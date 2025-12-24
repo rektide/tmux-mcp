@@ -439,6 +439,21 @@ function passesFilter(pane: TmuxPane, filter?: ProcessFilterOptions): boolean {
     if (pane.tty && !ttys.includes(pane.tty)) return false;
   }
 
+  if (filter.currentPath !== undefined) {
+    const currentPaths = Array.isArray(filter.currentPath) ? filter.currentPath : [filter.currentPath];
+    if (pane.currentPath && !currentPaths.includes(pane.currentPath)) return false;
+  }
+
+  if (filter.startPath !== undefined) {
+    const startPaths = Array.isArray(filter.startPath) ? filter.startPath : [filter.startPath];
+    if (pane.startPath && !startPaths.includes(pane.startPath)) return false;
+  }
+
+  if (filter.tty !== undefined) {
+    const ttys = Array.isArray(filter.tty) ? filter.tty : [filter.tty];
+    if (pane.tty && !ttys.includes(pane.tty)) return false;
+  }
+
   return true;
 }
 

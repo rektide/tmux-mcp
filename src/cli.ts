@@ -38,7 +38,7 @@ const listProcessesCommand = define({
     },
     startCommand: {
       type: 'string',
-      description: 'Filter by start command name'
+      description: 'Filter by start command name (what tmux initially launched)'
     },
     currentPath: {
       type: 'string',
