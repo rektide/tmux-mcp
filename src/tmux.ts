@@ -19,11 +19,76 @@ export interface TmuxWindow {
   sessionId: string;
 }
 
+export interface ChildProcess {
+  pid: number;
+  ppid: number;
+  pgid: number;
+  command: string;
+  cpu?: string;
+  memory?: string;
+  cwd?: string;
+  startTime?: string;
+  state?: string;
+  user?: string;
+}
+
 export interface TmuxPane {
   id: string;
   windowId: string;
   active: boolean;
   title: string;
+  pid?: number;
+  currentCommand?: string;
+  startCommand?: string;
+  currentPath?: string;
+  startPath?: string;
+  tty?: string;
+  sessionId?: string;
+  sessionName?: string;
+  windowName?: string;
+  dead?: boolean;
+  exitStatus?: number;
+  exitSignal?: number;
+  childProcesses?: ChildProcess[];
+}
+
+export interface ProcessFilterOptions {
+  paneId?: string;
+  windowId?: string;
+  sessionId?: string;
+  sessionName?: string;
+  pid?: number;
+  currentCommand?: string;
+  startCommand?: string;
+  currentPath?: string;
+  startPath?: string;
+  tty?: string;
+}
+
+export type ProcessInfoFields =
+  | 'paneId'
+  | 'windowId'
+  | 'windowName'
+  | 'sessionId'
+  | 'sessionName'
+  | 'active'
+  | 'title'
+  | 'pid'
+  | 'currentCommand'
+  | 'startCommand'
+  | 'currentPath'
+  | 'startPath'
+  | 'tty'
+  | 'dead'
+  | 'exitStatus'
+  | 'exitSignal';
+
+export interface ListProcessesOptions {
+  sessionTarget?: string;
+  filter?: ProcessFilterOptions;
+  fields?: ProcessInfoFields[];
+  includeChildProcesses?: boolean;
+  childProcessFields?: ('pid' | 'ppid' | 'pgid' | 'command' | 'cpu' | 'memory' | 'cwd' | 'startTime' | 'state' | 'user')[];
 }
 
 interface CommandExecution {
@@ -126,6 +191,235 @@ export async function listWindows(sessionId: string): Promise<TmuxWindow[]> {
       sessionId
     };
   });
+}
+
+export async function getChildProcesses(parentPid: number, fields?: ('pid' | 'ppid' | 'pgid' | 'command' | 'cpu' | 'memory' | 'cwd' | 'startTime' | 'state' | 'user')[]): Promise<ChildProcess[]> {
+  const childFields = fields || ['pid', 'ppid', 'pgid', 'command', 'cpu', 'memory', 'cwd', 'startTime', 'state', 'user'];
+
+  const fieldMapping: Record<string, string> = {
+    pid: 'pid',
+    ppid: 'ppid',
+    pgid: 'pgid',
+    command: 'comm',
+    cpu: '%cpu',
+    memory: '%mem',
+    cwd: 'cwd',
+    startTime: 'lstart',
+    state: 'state',
+    user: 'user'
+  };
+
+  const psFields = childFields.map(f => fieldMapping[f] || f).join(',');
+
+  try {
+    const { stdout } = await exec(`ps -o ${psFields} --ppid ${parentPid} --no-headers`);
+
+    if (!stdout.trim()) return [];
+
+    const processes: ChildProcess[] = [];
+
+    for (const line of stdout.trim().split('\n')) {
+      const parts = line.trim().split(/\s+/);
+
+      if (parts.length < 2) continue;
+
+      const child: ChildProcess = {} as ChildProcess;
+      let currentFieldIndex = 0;
+
+      childFields.forEach((field) => {
+        switch (field) {
+          case 'pid':
+            child.pid = parseInt(parts[currentFieldIndex], 10);
+            currentFieldIndex++;
+            break;
+          case 'ppid':
+            child.ppid = parseInt(parts[currentFieldIndex], 10);
+            currentFieldIndex++;
+            break;
+          case 'pgid':
+            child.pgid = parseInt(parts[currentFieldIndex], 10);
+            currentFieldIndex++;
+            break;
+          case 'command':
+            child.command = parts.slice(currentFieldIndex).join(' ');
+            currentFieldIndex = parts.length;
+            break;
+          case 'cpu':
+            child.cpu = parts[currentFieldIndex];
+            currentFieldIndex++;
+            break;
+          case 'memory':
+            child.memory = parts[currentFieldIndex];
+            currentFieldIndex++;
+            break;
+          case 'cwd':
+            child.cwd = parts[currentFieldIndex];
+            currentFieldIndex++;
+            break;
+          case 'startTime':
+            child.startTime = parts[currentFieldIndex];
+            currentFieldIndex++;
+            break;
+          case 'state':
+            child.state = parts[currentFieldIndex];
+            currentFieldIndex++;
+            break;
+          case 'user':
+            child.user = parts[currentFieldIndex];
+            currentFieldIndex++;
+            break;
+        }
+      });
+
+      processes.push(child);
+    }
+
+    return processes;
+  } catch (error: any) {
+    return [];
+  }
+}
+
+export async function listProcesses(options?: ListProcessesOptions): Promise<TmuxPane[]> {
+  const fields = options?.fields || [
+    'paneId',
+    'windowId',
+    'windowName',
+    'sessionId',
+    'sessionName',
+    'active',
+    'title',
+    'pid',
+    'currentCommand',
+    'startCommand',
+    'currentPath',
+    'startPath',
+    'tty',
+    'dead',
+    'exitStatus',
+    'exitSignal'
+  ];
+
+  const formatMapping: Record<ProcessInfoFields, string> = {
+    paneId: '#{pane_id}',
+    windowId: '#{window_id}',
+    windowName: '#{window_name}',
+    sessionId: '#{session_id}',
+    sessionName: '#{session_name}',
+    active: '#{?pane_active,1,0}',
+    title: '#{pane_title}',
+    pid: '#{pane_pid}',
+    currentCommand: '#{pane_current_command}',
+    startCommand: '#{pane_start_command}',
+    currentPath: '#{pane_current_path}',
+    startPath: '#{pane_start_path}',
+    tty: '#{pane_tty}',
+    dead: '#{?pane_dead,1,0}',
+    exitStatus: '#{pane_dead_status}',
+    exitSignal: '#{pane_dead_signal}'
+  };
+
+  const formatStr = fields.map(f => formatMapping[f]).join(':');
+
+  let command = 'list-panes -a';
+
+  if (options?.sessionTarget) {
+    command += ` -t '${options.sessionTarget}'`;
+  }
+
+  command += ` -F '${formatStr}'`;
+
+  const output = await executeTmux(command);
+
+  if (!output) return [];
+
+  const results: TmuxPane[] = [];
+
+  for (const line of output.split('\n')) {
+    const values = line.split(':');
+    const pane: TmuxPane = {} as TmuxPane;
+
+    fields.forEach((field, index) => {
+      const value = values[index];
+
+      switch (field) {
+        case 'paneId':
+          pane.id = value;
+          break;
+        case 'windowId':
+          pane.windowId = value;
+          break;
+        case 'windowName':
+          pane.windowName = value;
+          break;
+        case 'sessionId':
+          pane.sessionId = value;
+          break;
+        case 'sessionName':
+          pane.sessionName = value;
+          break;
+        case 'active':
+          pane.active = value === '1';
+          break;
+        case 'title':
+          pane.title = value || '';
+          break;
+        case 'pid':
+          pane.pid = value ? parseInt(value, 10) : undefined;
+          break;
+        case 'currentCommand':
+          pane.currentCommand = value || undefined;
+          break;
+        case 'startCommand':
+          pane.startCommand = value || undefined;
+          break;
+        case 'currentPath':
+          pane.currentPath = value || undefined;
+          break;
+        case 'startPath':
+          pane.startPath = value || undefined;
+          break;
+        case 'tty':
+          pane.tty = value || undefined;
+          break;
+        case 'dead':
+          pane.dead = value === '1';
+          break;
+        case 'exitStatus':
+          pane.exitStatus = value ? parseInt(value, 10) : undefined;
+          break;
+        case 'exitSignal':
+          pane.exitSignal = value ? parseInt(value, 10) : undefined;
+          break;
+      }
+    });
+
+    if (passesFilter(pane, options?.filter)) {
+      if (options?.includeChildProcesses && pane.pid) {
+        pane.childProcesses = await getChildProcesses(pane.pid, options.childProcessFields);
+      }
+      results.push(pane);
+    }
+  }
+
+  return results;
+}
+
+function passesFilter(pane: TmuxPane, filter?: ProcessFilterOptions): boolean {
+  if (!filter) return true;
+
+  if (filter.paneId !== undefined && pane.id !== filter.paneId) return false;
+  if (filter.windowId !== undefined && pane.windowId !== filter.windowId) return false;
+  if (filter.sessionId !== undefined && pane.sessionId !== filter.sessionId) return false;
+  if (filter.sessionName !== undefined && pane.sessionName !== filter.sessionName) return false;
+  if (filter.pid !== undefined && pane.pid !== filter.pid) return false;
+  if (filter.currentCommand !== undefined && pane.currentCommand !== filter.currentCommand) return false;
+  if (filter.startCommand !== undefined && pane.startCommand !== filter.startCommand) return false;
+  if (filter.currentPath !== undefined && pane.currentPath !== filter.currentPath) return false;
+  if (filter.startPath !== undefined && pane.startPath !== filter.startPath) return false;
+  if (filter.tty !== undefined && pane.tty !== filter.tty) return false;
+
+  return true;
 }
 
 /**
