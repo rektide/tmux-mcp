@@ -319,7 +319,8 @@ export async function listProcesses(options?: ListProcessesOptions): Promise<Tmu
     exitSignal: '#{pane_dead_signal}'
   };
 
-  const formatStr = fields.map(f => formatMapping[f]).join(':');
+  const DELIMITER = '___TMUX_MCP_DELIMITER___';
+  const formatStr = fields.map(f => formatMapping[f]).join(DELIMITER);
 
   let command = 'list-panes -a';
 
@@ -336,7 +337,7 @@ export async function listProcesses(options?: ListProcessesOptions): Promise<Tmu
   const results: TmuxPane[] = [];
 
   for (const line of output.split('\n')) {
-    const values = line.split(':');
+    const values = line.split(DELIMITER);
     const pane: TmuxPane = {} as TmuxPane;
 
     fields.forEach((field, index) => {
