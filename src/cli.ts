@@ -95,11 +95,11 @@ const listProcessesCommand = define({
     if (sessionId) filter.sessionId = sessionId
     if (sessionName) filter.sessionName = sessionName
     if (pid !== undefined) filter.pid = pid
-    if (currentCommand) filter.currentCommand = currentCommand
-    if (startCommand) filter.startCommand = startCommand
-    if (currentPath) filter.currentPath = currentPath
-    if (startPath) filter.startPath = startPath
-    if (tty) filter.tty = tty
+    if (currentCommand) filter.currentCommand = currentCommand.split(',')
+    if (startCommand) filter.startCommand = startCommand.split(',')
+    if (currentPath) filter.currentPath = currentPath.split(',')
+    if (startPath) filter.startPath = startPath.split(',')
+    if (tty) filter.tty = tty.split(',')
 
     const allFields: tmux.ProcessInfoFields[] = [
       'paneId', 'windowId', 'windowName', 'sessionId', 'sessionName',

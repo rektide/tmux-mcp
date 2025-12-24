@@ -58,11 +58,11 @@ export interface ProcessFilterOptions {
   sessionId?: string;
   sessionName?: string;
   pid?: number;
-  currentCommand?: string;
-  startCommand?: string;
-  currentPath?: string;
-  startPath?: string;
-  tty?: string;
+  currentCommand?: string | string[];
+  startCommand?: string | string[];
+  currentPath?: string | string[];
+  startPath?: string | string[];
+  tty?: string | string[];
 }
 
 export type ProcessInfoFields =
@@ -413,11 +413,31 @@ function passesFilter(pane: TmuxPane, filter?: ProcessFilterOptions): boolean {
   if (filter.sessionId !== undefined && pane.sessionId !== filter.sessionId) return false;
   if (filter.sessionName !== undefined && pane.sessionName !== filter.sessionName) return false;
   if (filter.pid !== undefined && pane.pid !== filter.pid) return false;
-  if (filter.currentCommand !== undefined && pane.currentCommand !== filter.currentCommand) return false;
-  if (filter.startCommand !== undefined && pane.startCommand !== filter.startCommand) return false;
-  if (filter.currentPath !== undefined && pane.currentPath !== filter.currentPath) return false;
-  if (filter.startPath !== undefined && pane.startPath !== filter.startPath) return false;
-  if (filter.tty !== undefined && pane.tty !== filter.tty) return false;
+
+  if (filter.currentCommand !== undefined) {
+    const currentCommands = Array.isArray(filter.currentCommand) ? filter.currentCommand : [filter.currentCommand];
+    if (pane.currentCommand && !currentCommands.includes(pane.currentCommand)) return false;
+  }
+
+  if (filter.startCommand !== undefined) {
+    const startCommands = Array.isArray(filter.startCommand) ? filter.startCommand : [filter.startCommand];
+    if (pane.startCommand && !startCommands.includes(pane.startCommand)) return false;
+  }
+
+  if (filter.currentPath !== undefined) {
+    const currentPaths = Array.isArray(filter.currentPath) ? filter.currentPath : [filter.currentPath];
+    if (pane.currentPath && !currentPaths.includes(pane.currentPath)) return false;
+  }
+
+  if (filter.startPath !== undefined) {
+    const startPaths = Array.isArray(filter.startPath) ? filter.startPath : [filter.startPath];
+    if (pane.startPath && !startPaths.includes(pane.startPath)) return false;
+  }
+
+  if (filter.tty !== undefined) {
+    const ttys = Array.isArray(filter.tty) ? filter.tty : [filter.tty];
+    if (pane.tty && !ttys.includes(pane.tty)) return false;
+  }
 
   return true;
 }
