@@ -4,7 +4,7 @@ import { parseArgs } from 'node:util';
 import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import * as tmux from "./tmux.js";
+import * as tmux from "./tmux.ts";
 
 // Create MCP server
 const server = new McpServer({

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { cli, define } from 'gunshi'
-import * as tmux from './tmux.js'
+import * as tmux from './tmux.ts'
 
 const listProcessesCommand = define({
   name: 'list-processes',
