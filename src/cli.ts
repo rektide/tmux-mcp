@@ -132,7 +132,8 @@ const listProcessesCommand = define({
       return
     }
 
-    console.table(processes)
+    const flatProcesses = Object.values(processes).flat()
+    console.table(flatProcesses)
   }
 })
 

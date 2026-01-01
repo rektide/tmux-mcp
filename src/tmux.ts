@@ -280,7 +280,7 @@ export async function getChildProcesses(parentPid: number, fields?: ('pid' | 'pp
   }
 }
 
-export async function listProcesses(options?: ListProcessesOptions): Promise<TmuxPane[]> {
+export async function listProcesses(options?: ListProcessesOptions): Promise<Record<string, TmuxPane[]>> {
   const fields = options?.fields || [
     'paneId',
     'windowId',
@@ -332,9 +332,9 @@ export async function listProcesses(options?: ListProcessesOptions): Promise<Tmu
 
   const output = await executeTmux(command);
 
-  if (!output) return [];
+  if (!output) return {};
 
-  const results: TmuxPane[] = [];
+  const results: Record<string, TmuxPane[]> = {};
 
   for (const line of output.split('\n')) {
     const values = line.split(DELIMITER);
@@ -399,7 +399,11 @@ export async function listProcesses(options?: ListProcessesOptions): Promise<Tmu
       if (options?.includeChildProcesses && pane.pid) {
         pane.childProcesses = await getChildProcesses(pane.pid, options.childProcessFields);
       }
-      results.push(pane);
+      const sessionName = pane.sessionName || 'unknown';
+      if (!results[sessionName]) {
+        results[sessionName] = [];
+      }
+      results[sessionName].push(pane);
     }
   }
 
